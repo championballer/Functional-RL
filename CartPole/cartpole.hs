@@ -1,17 +1,19 @@
 module CartPole where
 
-data Action = GoLeft 
+import Control.Monad.State
+
+data ActionSpace = GoLeft 
             | GoRight
             deriving (Show, Eq)
 
-data State = State
+data StateVariables = StateVariables
   { position  :: Float  -- ^ position of the cart on the track
   , angle     :: Float  -- ^ angle of the pole with the vertical
   , velocity  :: Float  -- ^ cart velocity
   , angleRate :: Float  -- ^ rate of change of the angle
   } deriving (Show, Eq, Ord)
 
-data Configuration = Configuration
+data ConfigurationVariables = ConfigurationVariables
   { gravity    :: Float
   , masscart   :: Float
   , masspole   :: Float
@@ -20,8 +22,14 @@ data Configuration = Configuration
   , tau        :: Float -- ^ seconds between state updates
   } deriving (Show)
 
+data EnvironmentVariables = EnvironmentVariables
+  { epNum   :: Integer
+  , done    :: Bool
+  , current :: StateVariables 
+  } deriving (Show, Eq)
 
-conf = Configuration 
+conf :: ConfigurationVariables
+conf = ConfigurationVariables
   { gravity = 9.8
   , masscart = 1.0
   , masspole = 0.1
@@ -30,10 +38,17 @@ conf = Configuration
   , tau = 0.02
   }
 
-polemassLength :: Configuration -> Float
+initialEnvVar :: EnvironmentVariables
+initialEnvVar = EnvironmentVariables 
+              { epNum = 0
+              , done = True
+              , current = StateVariables 0 0 0 0
+              } 
+
+polemassLength :: ConfigurationVariables -> Float
 polemassLength s = masspole s * poleLength s
 
-totalMass :: Configuration -> Float
+totalMass :: ConfigurationVariables -> Float
 totalMass s = masspole s + masscart s
 
 -- | Angle at which to fail the episode
@@ -43,26 +58,40 @@ thetaThresholdRadians = 12 * 2 * pi / 360
 xThreshold :: Float
 xThreshold = 2.4
 
-hasFallen :: State -> Bool
+hasFallen :: StateVariables -> Bool
 hasFallen s
   =  position s < (-1 * xThreshold)
   || position s > xThreshold
   ||    angle s < (-1 * thetaThresholdRadians)
   ||    angle s > thetaThresholdRadians
 
-step action = do
+-- reset
 
- let x     = position s
-     xDot  = velocity s
-     theta = angle    s
-     thetaDot = angleRate s
+-- step action = do
 
- let force    = (if a == GoLeft then -1 else 1) * forceMag conf
-     costheta = cos theta
-     sintheta = sin theta
+--  let x     = position state
+--      xDot  = velocity state
+--      theta = angle    state
+--      thetaDot = angleRate state
 
- let temp     = (force + polemassLength conf * (thetaDot ** 2) * sintheta) / totalMass conf
-     thetaacc = (gravity conf * sintheta - costheta * temp)
-                   / (poleLength conf * (4 / 3 - masspole conf * (costheta ** 2) / totalMass conf))
-     xacc     = temp - polemassLength conf * thetaacc * costheta / totalMass conf
+--  let force    = (if a == GoLeft then -1 else 1) * forceMag conf
+--      costheta = cos theta
+--      sintheta = sin theta
+
+--  let temp     = (force + polemassLength conf * (thetaDot ** 2) * sintheta) / totalMass conf
+--      thetaacc = (gravity conf * sintheta - costheta * temp)
+--                    / (poleLength conf * (4 / 3 - masspole conf * (costheta ** 2) / totalMass conf))
+--      xacc     = temp - polemassLength conf * thetaacc * costheta / totalMass conf
+
+--  let nextState = StateVariables
+--           { position  = x        + tau conf * xDot
+--           , velocity  = xDot     + tau conf * xacc
+--           , angle     = theta    + tau conf * thetaDot
+--           , angleRate = thetaDot + tau conf * thetaacc
+--           }
+
+--  let fallen = hasFallen nextState
+
+
+
 
