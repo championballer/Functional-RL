@@ -30,6 +30,12 @@ conf = Configuration
   , tau = 0.02
   }
 
+polemassLength :: Configuration -> Float
+polemassLength s = masspole s * poleLength s
+
+totalMass :: Configuration -> Float
+totalMass s = masspole s + masscart s
+
 -- | Angle at which to fail the episode
 thetaThresholdRadians :: Float
 thetaThresholdRadians = 12 * 2 * pi / 360
