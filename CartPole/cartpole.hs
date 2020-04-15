@@ -1,10 +1,11 @@
 module CartPole where
 
 import Control.Monad.State
+import System.Random
 
-data ActionSpace = GoLeft 
-            | GoRight
-            deriving (Show, Eq)
+data Action = GoLeft 
+                 | GoRight
+                 deriving (Show, Eq)
 
 data StateVariables = StateVariables
   { position  :: Float  -- ^ position of the cart on the track
@@ -23,10 +24,12 @@ data ConfigurationVariables = ConfigurationVariables
   } deriving (Show)
 
 data EnvironmentVariables = EnvironmentVariables
-  { epNum   :: Integer
-  , done    :: Bool
-  , current :: StateVariables 
+  { done    :: Bool
+  , current :: StateVariables
+  , reward :: Reward 
   } deriving (Show, Eq)
+
+type Reward = Float
 
 conf :: ConfigurationVariables
 conf = ConfigurationVariables
@@ -38,12 +41,12 @@ conf = ConfigurationVariables
   , tau = 0.02
   }
 
-initialEnvVar :: EnvironmentVariables
-initialEnvVar = EnvironmentVariables 
-              { epNum = 0
-              , done = True
-              , current = StateVariables 0 0 0 0
-              } 
+randomiseState :: IO StateVariables
+randomiseState = StateVariables
+  <$> randomRIO (-0.5, 0.5)
+  <*> randomRIO (-0.5, 0.5)
+  <*> randomRIO (-0.5, 0.5)
+  <*> randomRIO (-0.5, 0.5)
 
 polemassLength :: ConfigurationVariables -> Float
 polemassLength s = masspole s * poleLength s
@@ -65,32 +68,40 @@ hasFallen s
   ||    angle s < (-1 * thetaThresholdRadians)
   ||    angle s > thetaThresholdRadians
 
--- reset
+reset :: IO EnvironmentVariables
+reset = do
+  s <- randomiseState
+  return $ EnvironmentVariables True s 0
 
--- step action = do
+step :: StateVariables -> Action -> IO EnvironmentVariables
+step state action = do
 
---  let x     = position state
---      xDot  = velocity state
---      theta = angle    state
---      thetaDot = angleRate state
+ let x     = position state
+     xDot  = velocity state
+     theta = angle    state
+     thetaDot = angleRate state
 
---  let force    = (if a == GoLeft then -1 else 1) * forceMag conf
---      costheta = cos theta
---      sintheta = sin theta
+ let force    = (if action == GoLeft then -1 else 1) * forceMag conf
+     costheta = cos theta
+     sintheta = sin theta
 
---  let temp     = (force + polemassLength conf * (thetaDot ** 2) * sintheta) / totalMass conf
---      thetaacc = (gravity conf * sintheta - costheta * temp)
---                    / (poleLength conf * (4 / 3 - masspole conf * (costheta ** 2) / totalMass conf))
---      xacc     = temp - polemassLength conf * thetaacc * costheta / totalMass conf
+ let temp     = (force + polemassLength conf * (thetaDot ** 2) * sintheta) / totalMass conf
+     thetaacc = (gravity conf * sintheta - costheta * temp)
+                   / (poleLength conf * (4 / 3 - masspole conf * (costheta ** 2) / totalMass conf))
+     xacc     = temp - polemassLength conf * thetaacc * costheta / totalMass conf
 
---  let nextState = StateVariables
---           { position  = x        + tau conf * xDot
---           , velocity  = xDot     + tau conf * xacc
---           , angle     = theta    + tau conf * thetaDot
---           , angleRate = thetaDot + tau conf * thetaacc
---           }
+ let nextState = StateVariables
+          { position  = x        + tau conf * xDot
+          , velocity  = xDot     + tau conf * xacc
+          , angle     = theta    + tau conf * thetaDot
+          , angleRate = thetaDot + tau conf * thetaacc
+          }
 
---  let fallen = hasFallen nextState
+ let fallen = hasFallen nextState
+
+ if not fallen
+ then return $ EnvironmentVariables False nextState 1
+ else return $ EnvironmentVariables True nextState 1
 
 
 
